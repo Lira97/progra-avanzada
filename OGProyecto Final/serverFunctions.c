@@ -100,31 +100,31 @@ int SaveUser(thread_data_t* data ,char password[])
 }
 int AddPersmisses(thread_data_t* data ,int account_num,char other_account[])
 {
-    account_t* account = &(data->bank_data->account_array[account_num]);
-    pthread_mutex_t* account_l = &(data->data_locks->account_mutex[account_num]);
-    pthread_mutex_t* transaction = &(data->data_locks->transactions_mutex);
-  
-    char * line = NULL;
-    char file[100];
+  account_t* account = &(data->bank_data->account_array[account_num]);
+  pthread_mutex_t* account_l = &(data->data_locks->account_mutex[account_num]);
+  pthread_mutex_t* transaction = &(data->data_locks->transactions_mutex);
 
-    pthread_mutex_lock(transaction);
+  char * line = NULL;
+  char file[100];
 
-    sprintf(file, "%d", account_num);
-    strcat(file, "/account.txt");
-    printf("%s\n",other_account );
-    printf("%s\n", file);
-    account->infile = fopen(file, "a+");
+  pthread_mutex_lock(transaction);
 
-    if(account->infile == NULL)
-        return 0;
+  sprintf(file, "%d", account_num);
+  strcat(file, "/account.txt");
+  printf("%s\n",other_account );
+  printf("%s\n", file);
+  account->infile = fopen(file, "a+");
 
-    fprintf(account->infile,"%s\n",other_account);
-    free(line);
-    fclose(account->infile);
+  if(account->infile == NULL)
+      return 0;
 
-    pthread_mutex_unlock(transaction);  // Unlocks transactions first and account second
-    pthread_mutex_unlock(account_l);
-    return 0;
+  fprintf(account->infile,"%s\n",other_account);
+  free(line);
+  fclose(account->infile);
+
+  pthread_mutex_unlock(transaction);  // Unlocks transactions first and account second
+  pthread_mutex_unlock(account_l);
+  return 0;
 }
 void SaveFile(thread_data_t* data, int account_num,unsigned char * message,int numbytes, char * fileName, char * path, int flag){
     account_t* account = &(data->bank_data->account_array[account_num]);
