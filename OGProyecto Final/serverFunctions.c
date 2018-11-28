@@ -103,8 +103,7 @@ int AddPersmisses(thread_data_t* data ,int account_num,char other_account[])
     account_t* account = &(data->bank_data->account_array[account_num]);
     pthread_mutex_t* account_l = &(data->data_locks->account_mutex[account_num]);
     pthread_mutex_t* transaction = &(data->data_locks->transactions_mutex);
-    size_t len = 0;
-    ssize_t read;
+  
     char * line = NULL;
     char file[100];
 
@@ -114,19 +113,15 @@ int AddPersmisses(thread_data_t* data ,int account_num,char other_account[])
     strcat(file, "/account.txt");
     printf("%s\n",other_account );
     printf("%s\n", file);
+    account->infile = fopen(file, "a+");
 
+    if(account->infile == NULL)
+        return 0;
 
-      account->infile = fopen(file, "rb+");
-      if(account->infile == NULL)
-        return 0 ;
-        while ((read = getline(&line, &len, account->infile)) != -1)
-       {
-         account++;
-       }
-
-       fprintf(account->infile,"%s\n",other_account);
+    fprintf(account->infile,"%s\n",other_account);
     free(line);
     fclose(account->infile);
+
     pthread_mutex_unlock(transaction);  // Unlocks transactions first and account second
     pthread_mutex_unlock(account_l);
     return 0;
