@@ -1,6 +1,22 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+// Signals library
+#include <errno.h>
+#include <signal.h>
+// Sockets libraries
+#include <netdb.h>
+#include <sys/poll.h>
+// Posix threads library
+#include <pthread.h>
+#include <dirent.h>
+
+#include "codes.h"
+
 
 #define NUM_ACCOUNTS 50
 #define BUFFER_SIZE 15000

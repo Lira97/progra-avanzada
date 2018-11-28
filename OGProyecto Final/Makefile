@@ -2,9 +2,9 @@
 ### Variables for this project ###
 # These should be the only ones that need to be modified
 # The files that must be compiled, with a .o extension
-OBJECTS = fatal_error.o sockets.o
+OBJECTS = fatal_error.o sockets.o serverFunctions.o
 # The header files
-DEPENDS = fatal_error.h sockets.h codes.h server.h client.h
+DEPENDS = fatal_error.h sockets.h codes.h serverFunctions.h client.h
 # The executable programs to be created
 CLIENT = client
 #CLIENT = pi_client
