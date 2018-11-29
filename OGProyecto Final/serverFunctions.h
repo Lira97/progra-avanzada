@@ -1,9 +1,21 @@
+/*
+	Enrique Lira Martinez A01023351 ,Emiliano Abascal Gurria A01023234, Cesar Armando Valladares A01023503
+	Client program to access nas
+	This program connects to the server using sockets
+
+	Gilberto Echeverria
+	gilecheverria@yahoo.com
+	29/03/2018
+*/
+
+
 #ifndef SERVER_H
 #define SERVER_H
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <unistd.h>
 // Signals library
 #include <errno.h>
@@ -19,7 +31,7 @@
 
 
 #define NUM_ACCOUNTS 50
-#define BUFFER_SIZE 15000
+#define BUFFER_SIZE 1024
 #define INITIAL_ALLOC 512
 #define MAX_QUEUE 5
 
@@ -30,13 +42,13 @@ typedef struct account_struct {
 	FILE *infile;
 } account_t;
 
-// Data for the bank operations
-typedef struct bank_struct {
+// Data for the nas operations
+typedef struct nas_struct {
 	// Store the total number of operations performed
 	int total_transactions;
 	// An array of the accounts
 	account_t * account_array;
-} bank_t;
+} nas_t;
 
 // Structure for the mutexes to keep the data consistent
 typedef struct locks_struct {
@@ -50,8 +62,8 @@ typedef struct locks_struct {
 typedef struct data_struct {
 	// The file descriptor for the socket
 	int connection_fd;
-	// A pointer to a bank data structure
-	bank_t * bank_data;
+	// A pointer to a nas data structure
+	nas_t * nas_data;
 	// A pointer to a locks structure
 	locks_t * data_locks;
 } thread_data_t;
@@ -63,6 +75,7 @@ typedef struct incomming_struct {
 	char password[255];
 	float value;
 	char other_account;
+	char * userHomeDirectory;
 	char * optionalFileName;
 	char * optionalFilePath;
 } inmsg_t;
@@ -70,21 +83,25 @@ typedef struct incomming_struct {
 
 void usage(char * program);
 void setupHandlers();
-void initBank(bank_t * bank_data, locks_t * data_locks);
-void waitForConnections(int server_fd, bank_t * bank_data, locks_t * data_locks);
+void initNAS(nas_t * nas_data, locks_t * data_locks);
+void waitForConnections(int server_fd, nas_t * nas_data, locks_t * data_locks);
 void * attentionThread(void * arg);
-int checkValidAccount(int account,char password[]);
-void closeBank(bank_t * bank_data, locks_t * data_locks);
+int checkValidAccount(thread_data_t* data ,int account_num,char password[]);
+int checkPermissions(thread_data_t* data ,int account_num,char *other_account);
+void closenas(nas_t * nas_data, locks_t * data_locks);
 void detectInterruption(int signal);
-void SaveFile(thread_data_t* data, int account_num,unsigned char * message,int numbytes, char * fileName, char * path, int flag);
-void Delete(thread_data_t* data, int account_num);
+void SaveFile(thread_data_t* data, int account_num,unsigned char * message,int numbytes, char * fileName, char * path);
+int Delete(thread_data_t* data,int account_num,char *fileName,char * path);
+int DeletePermissions(thread_data_t* data ,int account_num,char other_account[]);
 // Custom functions
-float Deposit(thread_data_t* data, int account_num, float amount);
 char * read_line_by_line(FILE *fin) ;
-int AddPersmisses(thread_data_t* data ,int account_num,char other_account[]);
+int AddPersmisses(thread_data_t* data ,int account_num,char *other_account,char * path);
 int SaveUser(thread_data_t* data ,char password[]);
 int getTransactionsInThread(thread_data_t* data);
-int getTransactions(bank_t* bank_data, pthread_mutex_t* transaction);
+int getTransactions(nas_t* nas_data, pthread_mutex_t* transaction);
+long readFile(thread_data_t* data, int account_num, char * fileName, char * path);
+bool serverDownloadFile(float numbytes, float bytesTransfered, float bytesReceived, unsigned char * packet, int connection_fd, char * fileName);
+bool serverUploadFile(float numbytes, float bytesTransfered, unsigned char * packet, int connection_fd, char * filePath);
 
 
 #endif

@@ -1,14 +1,11 @@
 /*
-    Helper methods to use with sockets
-    The basic functions that should be done on any client / server program
-    - Creation of the socket on the server and binding
-    - Printing the local addresses
-    - Creation of a socket on a client
-    - Error validation when sending or receiving messages
+    Enrique Lira Martinez A01023351 ,Emiliano Abascal Gurria A01023234, Cesar Armando Valladares A01023503
+    Client program to access nas
+    This program connects to the server using sockets
 
     Gilberto Echeverria
     gilecheverria@yahoo.com
-    31/03/2018
+    29/03/2018
 */
 
 #include "sockets.h"

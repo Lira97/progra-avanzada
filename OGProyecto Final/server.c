@@ -1,12 +1,11 @@
 /*
-    Enrique Lira Martinez A01023351
-    Program for a simple bank server
-    It uses sockets and threads
-    The server will process simple transactions on a limited number of accounts
+  Enrique Lira Martinez A01023351 ,Emiliano Abascal Gurria A01023234, Cesar Armando Valladares A01023503
+  Client program to access nas
+  This program connects to the server using sockets
 
-    Gilberto Echeverria
-    gilecheverria@yahoo.com
-    29/03/2018
+  Gilberto Echeverria
+  gilecheverria@yahoo.com
+  29/03/2018
 */
 
 #include <stdio.h>
@@ -22,29 +21,19 @@
 // Posix threads library
 #include <pthread.h>
 #include <dirent.h>
-
 // Custom libraries
-
 #include "sockets.h"
 #include "serverFunctions.h"
 #include "fatal_error.h"
 
-///// Structure definitions
-
-// Data for a single bank account
-
-
-///// FUNCTION DECLARATIONS
 int interrupted = 0;
 
-
-///// MAIN FUNCTION
 int main(int argc, char * argv[]){
     int server_fd;
-    bank_t bank_data;
+    nas_t nas_data;
     locks_t data_locks;
 
-    printf("\n=== SIMPLE BANK SERVER ===\n");
+    printf("\n=== SIMPLE NAS SERVER ===\n");
 
     // Check the correct arguments
     if (argc != 2)
@@ -56,41 +45,33 @@ int main(int argc, char * argv[]){
     setupHandlers();
 
     // Initialize the data structures
-    initBank(&bank_data, &data_locks);
+    initNAS(&nas_data, &data_locks);
 
 	// Show the IPs assigned to this computer
 	printLocalIPs();
     // Start the server
     server_fd = initServer(argv[1], MAX_QUEUE);
 	// Listen for connections from the clients
-    waitForConnections(server_fd, &bank_data, &data_locks);
+    waitForConnections(server_fd, &nas_data, &data_locks);
     // Close the socket
     close(server_fd);
 
     // Clean the memory used
-    closeBank(&bank_data, &data_locks);
+    closenas(&nas_data, &data_locks);
 
     // Finish the main thread
     pthread_exit(NULL);
 
     return 0;
 }
-
-///// FUNCTION DEFINITIONS
-
-/*
-    Explanation to the user of the parameters required to run the program
-*/
+//Explanation to the user of the parameters required to run the program
 void usage(char * program)
 {
     printf("Usage:\n");
     printf("\t%s {port_number}\n", program);
     exit(EXIT_FAILURE);
 }
-
-/*
-    Modify the signal handlers for specific events
-*/
+//Modify the signal handlers for specific events
 void setupHandlers()
 {
   struct sigaction new_action;
@@ -103,7 +84,6 @@ void setupHandlers()
   // Set the handler
   sigaction(SIGINT, &new_action, NULL);
 }
-
 // Signal handler
 void detectInterruption(int signal)
 {
@@ -116,13 +96,13 @@ void detectInterruption(int signal)
     Function to initialize all the information necessary
     This will allocate memory for the accounts, and for the mutexes
 */
-void initBank(bank_t * bank_data, locks_t * data_locks)
+void initNAS(nas_t * nas_data, locks_t * data_locks)
 {
     // Set the number of transactions
-    bank_data->total_transactions = 0;
+    nas_data->total_transactions = 0;
 
     // Allocate the arrays in the structures
-    bank_data->account_array = malloc(NUM_ACCOUNTS * sizeof (account_t));
+    nas_data->account_array = malloc(NUM_ACCOUNTS * sizeof (account_t));
     // Allocate the arrays for the mutexes
     data_locks->account_mutex = malloc(NUM_ACCOUNTS * sizeof (pthread_mutex_t));
 
@@ -139,7 +119,7 @@ void initBank(bank_t * bank_data, locks_t * data_locks)
 /*
     Main loop to wait for incomming connections
 */
-void waitForConnections(int server_fd, bank_t * bank_data, locks_t * data_locks)
+void waitForConnections(int server_fd, nas_t * nas_data, locks_t * data_locks)
 {
     struct sockaddr_in client_address;
     socklen_t client_address_size;
@@ -206,7 +186,7 @@ void waitForConnections(int server_fd, bank_t * bank_data, locks_t * data_locks)
 
 				// create a thead and prepare the structure to send to the thread
         thread_data_t* connection_data = malloc(sizeof(thread_data_t));
-        connection_data->bank_data = bank_data;
+        connection_data->nas_data = nas_data;
         connection_data->data_locks = data_locks;
         connection_data->connection_fd = client_fd;
         int status;
@@ -223,22 +203,26 @@ void waitForConnections(int server_fd, bank_t * bank_data, locks_t * data_locks)
         }
     }
     // Print the number of transactions
-    printf("Bank closed with: %i transactions.\n", getTransactions(bank_data, &(data_locks->transactions_mutex)));
+    printf("nas closed with: %i transactions.\n", getTransactions(nas_data, &(data_locks->transactions_mutex)));
 }
 
 void * attentionThread(void * arg){
   thread_data_t* data = (thread_data_t*) arg;
   printf("[%d] Attending request!\n", (int)pthread_self());
   // Stuff required by poll
-  struct pollfd test_fds[1];
+  //Variable declaration.
+  unsigned char * packet = NULL;
+  int fileMaxSize = 1024;
   int timeout = 10;
   int out = 0;
   int poll_result;
-  char buffer[BUFFER_SIZE];
   int user = 0;
   long numbytes =0;
-  int fileMaxSize = 1024;
+  char buffer[BUFFER_SIZE];
   inmsg_t message; //create strcut for message incomming
+  struct pollfd test_fds[1];
+  message.optionalFileName = (char*)calloc(255, sizeof(char));
+  message.optionalFilePath = (char*)calloc(1024, sizeof(char));
   while (!interrupted)
   {
       // POLL
@@ -270,120 +254,105 @@ void * attentionThread(void * arg){
 
           while (out  != 1)
           {
-            if(recvString(data->connection_fd, buffer, BUFFER_SIZE) == 0){
-                printf("[%d] Client disconnected!\n", (int)pthread_self());//if the client disconnected
+            if(recvString(data->connection_fd, buffer, BUFFER_SIZE) == 0){//
+                printf("[%d] Client disconnected!\n", (int)pthread_self());//if the client disconnected end thread, else, recive message.
                 break;
             }
 
 
-
-            sscanf(buffer, "%i %s %i", (int*)&(message.op),(message.password),&(message.account));//revice the message from client
+            sscanf(buffer, "%i %s %i", (int*)&(message.op),(message.password),&(message.account));//Get values from buffer, and assign them to variables.
             printf("opcion :%u\n", message.op);
-            if(message.op == EXIT)
+            if(message.op == EXIT)//If the operation sent by the user is EXIT, end the thread.
             {// Client exit the program
                 printf("[%d] Client is leaving!\n", (int)pthread_self());
                 break;
             }
-            if(interrupted)
-            {
+            if(interrupted){
                 break;
             }
-            if(message.op == VERIFY)
-            {
-                printf("pass\n" );
-              if (!checkValidAccount(message.account,message.password))
-              {
+            if(message.op == VERIFY){//If the operation sent by the user is VERIFY, then the username and password are checked.
+              if (!checkValidAccount(data,message.account,message.password))
+              {//If the account is not valid, then send a message, else give access to the user, and notify him.
               sprintf(buffer, "%i",  INCORRECT);
               sendString(data->connection_fd, buffer);
-              }
-              else
-              {
+              }else{
                 sprintf(buffer, "%i",  CORRECT);
                 sendString(data->connection_fd, buffer);
                 out = 1;
-                printf("[%d] Successful transaction! - Total: %i\n", (int)pthread_self(), getTransactionsInThread(data));
+                printf("[%d] Successful transaction!\n", (int)pthread_self());
                 break;
               }
 
-            }
-            else
-            {
-              user = SaveUser(data, message.password);//Balance funtion
+            }else{
+              user = SaveUser(data, message.password);//Register the user and notify him.
               sprintf(buffer, "%i %i",  REGISTERS,user);
               sendString(data->connection_fd, buffer);
             }
 
-            printf("[%d] Successful transaction! - Total: %i\n", (int)pthread_self(), getTransactionsInThread(data));
+            printf("[%d] Successful transaction!", (int)pthread_self());
 
           }
 
-          if(recvString(data->connection_fd, buffer, BUFFER_SIZE) == 0){
-              printf("[%d] Client disconnected!\n", (int)pthread_self());//if the client disconnected
+          if(recvString(data->connection_fd, buffer, BUFFER_SIZE) == 0){//if the client disconnected end thread, else, recive message.
+              printf("[%d] Client disconnected!\n", (int)pthread_self());
               break;
           }
 
-        //  inmsg_t message; //create strcut for message incomming
-          message.optionalFileName = (char*)calloc(255, sizeof(char));
-          message.optionalFilePath = (char*)calloc(255, sizeof(char));
-          sscanf(buffer, "%i %f %ld %s %s", (int*)&(message.op),&(message.value),&numbytes, (message.optionalFileName), (message.optionalFilePath));//revice the message from client
-          if(message.op == EXIT){// Client exit the program
+          sscanf(buffer, "%i %f %ld %s %s", (int*)&(message.op),&(message.value),&numbytes, (message.optionalFileName), message.optionalFilePath);//Get values from buffer, and assign them to variables.
+          if(message.op == EXIT){//If the operation sent by the user is EXIT, end the thread.
               printf("[%d] Client is leaving!\n", (int)pthread_self());
               break;
           }
 
-          printf("opcion :%u\n", message.op);
-          unsigned char * file = (unsigned char*)calloc(numbytes, sizeof(unsigned char));
-          int bytesTransfered = 0;
-
-          if(fileMaxSize > numbytes){
-            fileMaxSize = numbytes;
-          }
-          unsigned char * packet = (unsigned char*)calloc(BUFFER_SIZE, sizeof(unsigned char));
-          switch(message.op){
-              case RECEIVEFILE://receiveFile
-              sprintf(buffer, "%i %d",  ASK, 10);//send an error
-              sendString(data->connection_fd, buffer);
-                while(numbytes > bytesTransfered){
-                  read(data->connection_fd, packet, fileMaxSize);
-                  for(int i = 0; i < fileMaxSize; i++){
-                    if(bytesTransfered >= numbytes){
-                      break;
-                    }
-                    file[bytesTransfered] = packet[i];
-                    bytesTransfered++;
-                  }
-//                      int progress = (bytesTransfered*100)/numbytes;
-                  printf("\r[%d] File Upload In progress %d bytes of %ld", (int)pthread_self(), bytesTransfered, numbytes);
-                  write(data->connection_fd, "0", 1);
-                  fflush(stdout);
-
+          switch(message.op){//Switch to make the server functions
+              case RECEIVEFILE://Case to receive a File from the client and store it in it's directory.
+                sprintf(buffer, "%i %ld",  CLIENTUPLOADFILE, numbytes);
+                sendString(data->connection_fd, buffer);//Send a message to the client, leting it know that it can start sending the file.
+                packet = (unsigned char*)calloc(fileMaxSize, sizeof(unsigned char));//Memory is allocated to the packet, with the maximum size of the packet.
+                strcpy(buffer, message.optionalFilePath);
+                strcat(buffer, message.optionalFileName);
+                if(serverDownloadFile(numbytes, 0, 0, packet, data->connection_fd, buffer)){
+                  printf("\nFile was uploaded correctly\n");
+                }else{
+                  printf("\nThere was a problem\n");
                 }
-              free(packet);
-              printf("\nFile uploaded\n");
-              SaveFile(data, message.account,file,numbytes, message.optionalFileName, message.optionalFilePath, 0);
-              free(file);
-              break;
-                  break;
-              case DOWNLOADFILE://check the balance
-                  break;
-              case GETDIRECTORIES://Check Directories
-                sprintf(buffer, "%i %d",  INSUFFICIENT, 10);//send an error
+                //When the file is received save the file in the user's directory, then release the packet's and the file's memory and assign the bytesTransfered and numbytes to 0.
+                numbytes = 0;
+                break;
+              case SENDFILE://Case to send a file to the client(Downloading).
+                numbytes = readFile(data, message.account, message.optionalFileName, message.optionalFilePath);//The file array is the result of the reading of the file that will be downloaded.
+                packet = (unsigned char*)calloc(fileMaxSize, sizeof(unsigned char));
+                sprintf(buffer, "%i %ld",  CLIENTRECIVEFILE, numbytes);//Send a message to the client, leting it know that the server is ready to send the file.
                 sendString(data->connection_fd, buffer);
+                strcpy(buffer, message.optionalFilePath);
+                strcat(buffer, message.optionalFileName);
+                if(serverUploadFile(numbytes, 0,packet, data->connection_fd, buffer)){
+                  printf("\nFile was downloaded correctly\n");
+                }else{
+                  printf("\nThere was a problem\n");
+                }
+                numbytes = 0;
+                free(packet);
+                break;
+              case GETDIRECTORIES://Get the files and directories of current folder.
+                sprintf(buffer, "%i %d",  CLIENT_SHOW_DIRECTORIES, 10);
+                sendString(data->connection_fd, buffer);//Let know the client that the server is about to send the result to the client.
                 struct dirent *de;  // Pointer for directory entry
-                DIR *dr = opendir(".");
+                DIR *dr = opendir(message.optionalFilePath);
                 if (dr == NULL){  // opendir returns NULL if couldn't open directory
                     printf("Could not open current directory" );
                     return 0;
                   }
-                  char * dirs = (char*)calloc(5000, sizeof(char));
-                  while ((de = readdir(dr)) != NULL) {
+                  char * dirs = (char*)calloc(BUFFER_SIZE, sizeof(char));//Allocate memory for the string containing the result.
+                  while ((de = readdir(dr)) != NULL){
                       strcat(de->d_name, " ");
                       strcat(dirs, de->d_name);
                   }
 
-                  sprintf(buffer, "%s", dirs);//send an error
-                  sendString(data->connection_fd, buffer);
+                  sprintf(buffer, "%s", dirs);
+                  sendString(data->connection_fd, buffer);//Send the result to the client and release memory.
                   closedir(dr);
+                  free(dirs);
                 break;
               case CHECKA://check the balance
                   sprintf(buffer, "%i",  ASK_ACCOUNT);//send an error
@@ -392,57 +361,69 @@ void * attentionThread(void * arg){
                         printf("[%d] Client disconnected!\n", (int)pthread_self());//if the client disconnected
                         break;
                     }
-                  sscanf(buffer, "%s",&(message.other_account));
-                  FILE *fin;
-                  char *line;
-                  char file[100];
-                  char account[100];
-                  sprintf(account, "%d", message.account);
-                  strcpy(file, &message.other_account);
-                  strcat(file, "/account.txt");
-                  printf("%s\n",account );
-                  printf("%s\n", &message.other_account);
-                  printf("%s\n", file);
-                  fin = fopen(file, "rb");
-                  if (fin){
-                      while (( line = read_line_by_line(fin))){
-                          if ( strstr(line,account) ){
-                            printf("%s\n", line );
-                            sprintf(buffer, "%i",  FOUND);//send an error
-                            sendString(data->connection_fd, buffer);
-                            break;
-                          }
-                          free(line);
-                      }
+                  sscanf(buffer, "%s",&(message.other_account));//store the account that was asked
+                  int result=checkPermissions(data ,message.account,&(message.other_account));//enter to the fucntion checkPermissions
+                  if (result == message.account)//if the result was the same as the account number
+                  {
+                    sprintf(buffer, "%i",  FOUND);//send a found to the client
+                    sendString(data->connection_fd, buffer);
+                  }else{
+                    sprintf(buffer, "%i",  NOFOUND);//send error
+                    sendString(data->connection_fd, buffer);
                   }
-                  sprintf(buffer, "%i",  NOFOUND);//send an error
-                  sendString(data->connection_fd, buffer);
-                  fclose(fin);
+                  break;
+              case GIVE://check the balance
+                sprintf(buffer, "%i",  ASK_ACCOUNT);//ask the account
+                sendString(data->connection_fd, buffer);
+                if(recvString(data->connection_fd, buffer, BUFFER_SIZE) == 0){
+                    printf("[%d] Client disconnected!\n", (int)pthread_self());//if the client disconnected
                     break;
-                  case GIVE://check the balance
-                        sprintf(buffer, "%i",  ASK_ACCOUNT);//send an error
-                        sendString(data->connection_fd, buffer);
-                        recvString(data->connection_fd, buffer, BUFFER_SIZE);
-                        sscanf(buffer, "%s",&(message.other_account));
-                        AddPersmisses(data ,message.account,&message.other_account);
-                        sprintf(buffer, "%i",  WRITTEN);//send an error
-                        sendString(data->connection_fd, buffer);
-                        fclose(fin);
-                          break;
-              case CREATEDIRECTORY://check the balance
-                Delete(data, message.account);
-                sprintf(buffer, "%i",  OK);
+                }
+                sscanf(buffer, "%s %s",&(message.other_account),message.optionalFilePath);//get the account and path
+                AddPersmisses(data ,message.account,&message.other_account,message.optionalFilePath);//enter to function
+                sprintf(buffer, "%i",  WRITTEN);//send a message
                 sendString(data->connection_fd, buffer);
+                  break;
+              case CREATEDIRECTORY:// PENDING
                 break;
+              case REVOKE:
+                  sprintf(buffer, "%i",  ASK_ACCOUNT);//ask the account
+                  sendString(data->connection_fd, buffer);//send buffer
+                  if(recvString(data->connection_fd, buffer, BUFFER_SIZE) == 0){//recive message
+                      printf("[%d] Client disconnected!\n", (int)pthread_self());//if the client disconnected
+                      break;
+                  }
+                  sscanf(buffer, "%s %s",&(message.other_account),message.optionalFilePath);//get the account and path
+                  DeletePermissions(data ,message.account,&message.other_account);//enter to account
+                  sprintf(buffer, "%i",  WRITTEN);//send a message
+                  sendString(data->connection_fd, buffer);
+
+                  break;
               case DELETE://check the balance
-                Delete(data, message.account);
-                sprintf(buffer, "%i",  OK);
+                sprintf(buffer, "%i",  NAMEFILE);//send an error
                 sendString(data->connection_fd, buffer);
-                break;
+                if(recvString(data->connection_fd, buffer, BUFFER_SIZE) == 0){
+                      printf("[%d] Client disconnected!\n", (int)pthread_self());//if the client disconnected
+                        break;
+                    }
+                    sscanf(buffer, "%s %s", message.optionalFileName,message.optionalFilePath);//get the account and path
+                    int status =  Delete(data, message.account,message.optionalFileName,message.optionalFilePath);//get the status of the file
+                    if (status == 0)
+                    {
+                      sprintf(buffer, "%i",  OK);//send a ok message
+                      sendString(data->connection_fd, buffer);
+                    }
+                    else
+                    {
+                      sprintf(buffer, "%i",  ERROR);//send a ok ERROR
+                      sendString(data->connection_fd, buffer);
+
+                    }
+                    break;
               default:
                   fatalError("Unknown code!");//type a wrong option
           }
-          printf("[%d] Successful transaction! - Total: %i\n", (int)pthread_self(), getTransactionsInThread(data));
+          printf("[%d] Successful transaction!\n", (int)pthread_self());
       }
   }
   sprintf(buffer, "%i %d",  BYE, 0);//finish the connection
