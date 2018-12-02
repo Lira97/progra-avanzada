@@ -16,5 +16,4 @@
 int main(int argc, char ** argv)
 {
   Multiply(readFile(argv[1]),readFile(argv[2]));//this takes 2 argument from the user and read it and then enter it will mutiply
-  return 0;
 }

@@ -78,7 +78,7 @@ void Multiply(Matrix* a, Matrix* b)
 
   Matrix * result;//a new struct is created to be used for the matrix result
   result = (Matrix*)malloc(sizeof (Matrix));//the struct is allocate in memory
-  if((a->width) == (b->height))// if the number of columns from the first matrix are different from the rows of the second matrix the multiplication will be impossible to be done
+  if((a->height) == (b->width))// if the number of columns from the first matrix are different from the rows of the second matrix the multiplication will be impossible to be done
   {
     /*the size from the final matrix will be the column
     from the first matrix and the row from the second
